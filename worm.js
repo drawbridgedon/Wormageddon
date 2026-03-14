@@ -1,12 +1,13 @@
 const SEGMENT_RADIUS = 6;
 const HEAD_RADIUS = 8;
-const TURN_SPEED = 0.07; // radians per tick
+const DEFAULT_TURN_SPEED = 0.07; // radians per tick
 
 export class Worm {
-  constructor({ x, y, angle, color, personality }) {
+  constructor({ x, y, angle, color, personality, speed = 2, turnSpeed = DEFAULT_TURN_SPEED }) {
     this.color = color;
     this.angle = angle;
-    this.speed = 2;
+    this.speed = speed;
+    this.turnSpeed = turnSpeed;
     this.personality = personality;
     this.alive = true;
 
@@ -28,7 +29,7 @@ export class Worm {
 
     // Ask personality how much to turn (-1 = full left, 0 = straight, +1 = full right)
     const turn = this.personality.steer(this, world);
-    this.angle += Math.max(-1, Math.min(1, turn)) * TURN_SPEED;
+    this.angle += Math.max(-1, Math.min(1, turn)) * this.turnSpeed;
 
     // Move head forward
     const newHead = {

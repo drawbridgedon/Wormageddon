@@ -1,6 +1,7 @@
 import { World, WORLD_WIDTH, WORLD_HEIGHT } from './world.js';
 import { Worm } from './worm.js';
 import { Foodie, Aggressor, Wanderer } from './personality.js';
+import { initEditor } from './editor.js';
 
 const WORM_COLORS = [
   '#22c55e', '#3b82f6', '#ef4444', '#f97316',
@@ -36,3 +37,4 @@ for (let i = 0; i < 10; i++) {
 }
 
 world.start();
+initEditor(world);
