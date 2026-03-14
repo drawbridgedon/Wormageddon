@@ -4,18 +4,9 @@
   <meta charset="UTF-8">
   <title>Wormageddon</title>
   <style>
-    body {
-      margin: 0;
-      background: #111;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      font-family: monospace;
-    }
-    #canvas {
-      display: block;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #111; overflow: hidden; font-family: monospace; }
+    #canvas { position: fixed; top: 0; left: 0; }
     #hud {
       position: absolute;
       top: 16px;

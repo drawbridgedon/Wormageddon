@@ -25,6 +25,20 @@ function distSq(a, b) {
   return dx * dx + dy * dy;
 }
 
+// Steer away from world boundaries. Returns a turn delta to blend in.
+function avoidWalls(worm, world) {
+  const { x, y } = worm.head;
+  const margin = 300;
+  let turn = 0;
+
+  if (x < margin)                    turn += steerToward(worm.angle, 0)           * (1 - x / margin);
+  if (x > world.worldWidth - margin) turn += steerToward(worm.angle, Math.PI)     * (1 - (world.worldWidth - x) / margin);
+  if (y < margin)                    turn += steerToward(worm.angle, Math.PI / 2) * (1 - y / margin);
+  if (y > world.worldHeight - margin) turn += steerToward(worm.angle, -Math.PI / 2) * (1 - (world.worldHeight - y) / margin);
+
+  return turn;
+}
+
 // ─── Foodie ─────────────────────────────────────────────────────────────────
 // Seeks the nearest food. Mildly avoids other worm bodies.
 
@@ -42,7 +56,7 @@ export const Foodie = {
       if (d < bestDist) { bestDist = d; nearestFood = food; }
     }
 
-    if (!nearestFood) return 0;
+    if (!nearestFood) return avoidWalls(worm, world);
 
     let turn = steerToward(worm.angle, angleTo(head, nearestFood));
 
@@ -57,7 +71,8 @@ export const Foodie = {
       }
     }
 
-    return turn;
+    // Walls take priority when close
+    return turn + avoidWalls(worm, world) * 2;
   },
 };
 
@@ -92,7 +107,7 @@ export const Aggressor = {
       y: target.head.y + Math.sin(target.angle) * target.speed * 20,
     };
 
-    return steerToward(worm.angle, angleTo(head, predicted));
+    return steerToward(worm.angle, angleTo(head, predicted)) + avoidWalls(worm, world) * 2;
   },
 };
 
@@ -118,6 +133,6 @@ export const Wanderer = {
       if (d < bestDist) { bestDist = d; foodPull = steerToward(worm.angle, angleTo(head, food)); }
     }
 
-    return this._noise * 0.8 + foodPull * 0.2;
+    return this._noise * 0.8 + foodPull * 0.2 + avoidWalls(worm, world) * 2;
   },
 };
