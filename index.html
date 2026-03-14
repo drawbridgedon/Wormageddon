@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Wormageddon</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -10,192 +11,331 @@
 
     #hud {
       position: absolute;
-      top: 16px;
-      left: 16px;
-      color: #ccc;
-      font-size: 14px;
-      line-height: 1.8;
+      top: 14px; left: 14px;
+      color: #aaa;
+      font-size: 13px;
+      line-height: 1.7;
       pointer-events: none;
     }
 
-    /* ── Editor panel ─────────────────────────────────────── */
-    #editor {
-      position: fixed;
-      right: 0; top: 0;
-      width: 230px; height: 100%;
-      background: rgba(14, 14, 14, 0.95);
-      border-left: 1px solid #2a2a2a;
-      overflow-y: auto;
-      z-index: 20;
-      font-size: 12px;
-      color: #bbb;
-      padding: 12px 12px 24px;
-      transition: transform 0.2s ease;
-    }
-    #editor.collapsed { transform: translateX(230px); }
+    /* ─────────────────────────────────────────────────────────────
+       Spawn panel
+       Desktop (≥520px wide OR landscape):  right side drawer
+       Mobile  (<520px wide AND portrait):  bottom sheet
+    ───────────────────────────────────────────────────────────── */
 
-    #editor-tab {
+    #panel {
       position: fixed;
-      right: 230px; top: 50%;
-      transform: translateY(-50%);
-      background: rgba(14,14,14,0.95);
-      border: 1px solid #2a2a2a;
-      border-right: none;
-      padding: 10px 5px;
+      z-index: 30;
+      display: flex;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* The thin handle strip that's always visible */
+    #panel-handle {
+      background: rgba(18, 18, 18, 0.97);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      flex-shrink: 0;
+      color: #555;
+      letter-spacing: 2px;
+      font-size: 10px;
+      transition: color 0.15s;
+    }
+    #panel-handle:hover { color: #bbb; }
+
+    /* Scrollable content area */
+    #panel-body {
+      background: rgba(11, 11, 11, 0.97);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── Desktop: right drawer ── */
+    @media (min-width: 520px), (orientation: landscape) {
+      #panel {
+        right: 0; top: 0;
+        height: 100%;
+        flex-direction: row-reverse; /* handle on left */
+        transform: translateX(var(--body-w, 280px));
+      }
+      #panel.open { transform: translateX(0); }
+
+      #panel-handle {
+        width: 22px;
+        border-left: 1px solid #252525;
+        writing-mode: vertical-lr;
+      }
+      #panel-body {
+        width: var(--body-w, 280px);
+        border-left: 1px solid #1e1e1e;
+        padding: 16px;
+      }
+    }
+
+    /* ── Mobile portrait: bottom sheet ── */
+    @media (max-width: 519px) and (orientation: portrait) {
+      #panel {
+        bottom: 0; left: 0; right: 0;
+        width: 100%;
+        flex-direction: column; /* handle on top */
+        transform: translateY(calc(100% - 34px));
+        max-height: 72vh;
+      }
+      #panel.open { transform: translateY(0); }
+
+      #panel-handle {
+        height: 34px;
+        width: 100%;
+        border-top: 1px solid #252525;
+        font-size: 11px;
+      }
+      #panel-body {
+        width: 100%;
+        max-height: calc(72vh - 34px);
+        padding: 14px 16px 24px;
+      }
+    }
+
+    /* ─── Panel contents ─────────────────────────────────────── */
+
+    #panel-body h2 {
+      font-size: 13px;
+      color: #ddd;
+      letter-spacing: 2px;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #222;
+    }
+
+    .section-label {
+      font-size: 10px;
+      color: #444;
+      letter-spacing: 2px;
+      margin: 16px 0 8px;
+    }
+
+    /* Creature cards (presets + saved) */
+    .creature-card {
+      border: 1px solid #232323;
+      border-radius: 4px;
+      padding: 9px 10px;
+      margin-bottom: 7px;
+      background: #0e0e0e;
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .card-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .card-name {
+      flex: 1;
+      font-size: 13px;
+      color: #ddd;
+      font-weight: bold;
+    }
+    .card-desc {
+      font-size: 10px;
+      color: #444;
+      margin-bottom: 6px;
+    }
+    .card-traits {
+      display: grid;
+      grid-template-columns: 30px 1fr;
+      gap: 3px 6px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .tlabel {
+      font-size: 9px;
+      color: #444;
+      text-align: right;
+    }
+    .ttrack {
+      height: 4px;
+      background: #1e1e1e;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .tfill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.2s;
+    }
+
+    .spawn-btn {
+      width: 100%;
+      padding: 6px;
+      background: #0a1a0a;
+      border: 1px solid #2a4a2a;
+      color: #4ade80;
       cursor: pointer;
       font-family: monospace;
       font-size: 11px;
-      color: #888;
-      writing-mode: vertical-lr;
-      letter-spacing: 2px;
-      z-index: 21;
-      transition: right 0.2s ease;
-      user-select: none;
-    }
-    #editor-tab.collapsed { right: 0; }
-    #editor-tab:hover { color: #ccc; }
-
-    #editor h3 {
-      font-size: 13px;
-      color: #eee;
-      margin-bottom: 14px;
       letter-spacing: 1px;
-      border-bottom: 1px solid #2a2a2a;
-      padding-bottom: 8px;
+      border-radius: 3px;
+      transition: background 0.15s;
     }
+    .spawn-btn:hover { background: #142a14; }
 
-    .ed-label {
+    .delete-btn {
+      padding: 6px 10px;
+      background: none;
+      border: 1px solid #2a1a1a;
+      color: #555;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 11px;
+      border-radius: 3px;
+      transition: color 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .delete-btn:hover { color: #ef4444; border-color: #4a2a2a; }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .card-actions .spawn-btn { flex: 1; }
+
+    /* Custom builder */
+    #custom-toggle {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #custom-toggle:hover .section-label { color: #888; }
+    .chevron { font-size: 10px; color: #444; transition: transform 0.2s; }
+    .chevron.up { transform: rotate(180deg); }
+
+    #custom-builder {
+      display: none;
+      padding: 4px 0 0;
+    }
+    #custom-builder.visible { display: block; }
+
+    .field-label {
+      font-size: 10px;
+      color: #555;
       display: flex;
       justify-content: space-between;
       margin: 10px 0 3px;
-      font-size: 11px;
-      color: #777;
     }
-    .ed-label span { color: #ddd; font-weight: bold; }
+    .field-label span { color: #ccc; }
+
+    input[type=text] {
+      width: 100%;
+      background: #181818;
+      border: 1px solid #2e2e2e;
+      color: #eee;
+      padding: 6px 8px;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type=text]:focus { border-color: #4ade80; }
+
+    input[type=color] {
+      width: 100%;
+      height: 32px;
+      border: 1px solid #2e2e2e;
+      background: none;
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 3px;
+    }
 
     input[type=range] {
       width: 100%;
       accent-color: #4ade80;
       cursor: pointer;
     }
-    input[type=text] {
-      width: 100%;
-      background: #1a1a1a;
-      border: 1px solid #333;
-      color: #eee;
-      padding: 5px 7px;
-      font-family: monospace;
-      font-size: 12px;
-    }
-    input[type=color] {
-      width: 100%;
-      height: 30px;
-      border: 1px solid #333;
-      background: none;
-      cursor: pointer;
-      padding: 2px;
-    }
 
     #ed-save {
       width: 100%;
       margin-top: 14px;
       padding: 8px;
-      background: #0e1f0e;
+      background: #0a1a0a;
       border: 1px solid #4ade80;
       color: #4ade80;
       cursor: pointer;
       font-family: monospace;
-      font-size: 12px;
-      letter-spacing: 1px;
-    }
-    #ed-save:hover { background: #1a3a1a; }
-
-    #ed-list {
-      margin-top: 16px;
-      border-top: 1px solid #2a2a2a;
-      padding-top: 12px;
-    }
-    #ed-list-title {
       font-size: 11px;
-      color: #555;
-      margin-bottom: 8px;
       letter-spacing: 1px;
+      border-radius: 3px;
+      transition: background 0.15s;
     }
+    #ed-save:hover { background: #142a14; }
 
-    .ed-card {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      padding: 6px 0;
-      border-bottom: 1px solid #1c1c1c;
-    }
-    .ed-swatch {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .ed-card-info {
-      flex: 1;
-      overflow: hidden;
-    }
-    .ed-card-name {
-      font-size: 12px;
-      color: #ddd;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .ed-card-stats {
-      font-size: 10px;
-      color: #555;
-      margin-top: 1px;
-    }
-    .ed-spawn {
-      padding: 4px 8px;
-      background: #0e0e1f;
-      border: 1px solid #6366f1;
-      color: #818cf8;
-      cursor: pointer;
-      font-family: monospace;
+    #my-archetypes { display: none; }
+
+    #empty-state {
       font-size: 11px;
-      flex-shrink: 0;
+      color: #333;
+      text-align: center;
+      padding: 20px 0 8px;
+      line-height: 1.8;
     }
-    .ed-spawn:hover { background: #1a1a3a; }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
   <div id="hud"></div>
 
-  <!-- Editor panel tab -->
-  <div id="editor-tab">BUILD</div>
+  <div id="panel">
+    <div id="panel-handle">SPAWN</div>
+    <div id="panel-body">
+      <h2>WORM BUILDER</h2>
 
-  <!-- Editor panel -->
-  <div id="editor">
-    <h3>Worm Builder</h3>
+      <div id="empty-state">
+        No worms yet.<br>Spawn one below.
+      </div>
 
-    <div class="ed-label">Name</div>
-    <input id="ed-name" type="text" value="Custom" maxlength="14">
+      <div class="section-label">PRESETS</div>
+      <div id="presets-list"></div>
 
-    <div class="ed-label">Color</div>
-    <input id="ed-color" type="color" value="#ff6b6b">
+      <div id="custom-toggle">
+        <div class="section-label" style="margin:0">CREATE CUSTOM</div>
+        <span class="chevron">▼</span>
+      </div>
 
-    <div class="ed-label">Speed <span id="ed-speed-val">2.0</span></div>
-    <input id="ed-speed" type="range" min="1" max="5" step="0.5" value="2">
+      <div id="custom-builder">
+        <div class="field-label">Name</div>
+        <input id="ed-name" type="text" value="Custom" maxlength="14">
 
-    <div class="ed-label">Food drive <span id="ed-food-val">5</span></div>
-    <input id="ed-food" type="range" min="0" max="10" step="1" value="5">
+        <div class="field-label">Color</div>
+        <input id="ed-color" type="color" value="#ff6b6b">
 
-    <div class="ed-label">Aggression <span id="ed-aggro-val">2</span></div>
-    <input id="ed-aggro" type="range" min="0" max="10" step="1" value="2">
+        <div class="field-label">Speed <span id="ed-speed-val">2.0</span></div>
+        <input id="ed-speed" type="range" min="1" max="5" step="0.5" value="2">
 
-    <div class="ed-label">Wander <span id="ed-wander-val">2</span></div>
-    <input id="ed-wander" type="range" min="0" max="10" step="1" value="2">
+        <div class="field-label">Food drive <span id="ed-food-val">5</span></div>
+        <input id="ed-food" type="range" min="0" max="10" step="1" value="5">
 
-    <button id="ed-save">Save Archetype</button>
+        <div class="field-label">Aggression <span id="ed-aggro-val">2</span></div>
+        <input id="ed-aggro" type="range" min="0" max="10" step="1" value="2">
 
-    <div id="ed-list">
-      <div id="ed-list-title">SAVED ARCHETYPES</div>
+        <div class="field-label">Wander <span id="ed-wander-val">3</span></div>
+        <input id="ed-wander" type="range" min="0" max="10" step="1" value="3">
+
+        <button id="ed-save">Save Archetype</button>
+      </div>
+
+      <div id="my-archetypes">
+        <div class="section-label">MY ARCHETYPES</div>
+        <div id="archetypes-list"></div>
+      </div>
     </div>
   </div>
 

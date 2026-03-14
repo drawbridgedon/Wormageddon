@@ -1,8 +1,8 @@
 import { SEGMENT_RADIUS } from './worm.js';
 
 const FOOD_RADIUS = 4;
-const FOOD_CAP = 3000;         // max food pellets at once
-const FOOD_SPAWN_RATE = 30;    // new pellets added every tick
+const FOOD_CAP = 3000;
+const FOOD_SPAWN_RATE = 30;
 const GROWTH_PER_FOOD = 5;
 const FOOD_COLORS = ['#f9e642', '#f97316', '#22d3ee', '#a78bfa', '#4ade80'];
 
@@ -26,10 +26,10 @@ export class World {
     this._factories = [];
     this._tick = 0;
 
-    // Camera state
+    // Camera: free by default, follows a worm reference when set
     this.camera = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
-    this._followIndex = -1;  // -1 = centroid, 0+ = specific worm
-    this._drag = null;       // { startX, startY, camX, camY } while dragging
+    this._followTarget = null; // worm ref or null (free camera)
+    this._drag = null;
 
     this._bindInput();
     this._spawnFood(500);
@@ -53,7 +53,6 @@ export class World {
   _bindInput() {
     const canvas = this.canvas;
 
-    // Unified pointer handling (works for mouse and touch)
     const onStart = (x, y) => {
       this._drag = { startX: x, startY: y, camX: this.camera.x, camY: this.camera.y };
     };
@@ -65,11 +64,14 @@ export class World {
     const onEnd = (x, y) => {
       if (!this._drag) return;
       const moved = Math.hypot(x - this._drag.startX, y - this._drag.startY);
-      if (moved < 8) this._cycleFollow(); // small movement = click
+      if (moved < 8) {
+        this._cycleFollow();        // tap = cycle through worms
+      } else {
+        this._followTarget = null;  // drag = free camera, stays put
+      }
       this._drag = null;
     };
 
-    // mousedown on canvas, move/up on document so fast drags don't escape
     canvas.addEventListener('mousedown', e => onStart(e.clientX, e.clientY));
     document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
     document.addEventListener('mouseup',   e => onEnd(e.clientX, e.clientY));
@@ -80,11 +82,13 @@ export class World {
   }
 
   _cycleFollow() {
-    // Click cycles: centroid → worm 0 → worm 1 → … → centroid
-    if (this._followIndex < this.worms.length - 1) {
-      this._followIndex++;
+    if (this.worms.length === 0) { this._followTarget = null; return; }
+    const idx = this.worms.indexOf(this._followTarget);
+    // indexOf returns -1 if not found → idx+1=0 → first worm. At end → null (free).
+    if (idx < this.worms.length - 1) {
+      this._followTarget = this.worms[idx + 1];
     } else {
-      this._followIndex = -1;
+      this._followTarget = null;
     }
   }
 
@@ -147,39 +151,27 @@ export class World {
       });
     }
 
-    // Trickle food
     if (this.food.length < FOOD_CAP) this._spawnFood(FOOD_SPAWN_RATE);
 
-    // Respawns
     this._respawnQueue = this._respawnQueue.filter(entry => {
       if (--entry.ticksLeft <= 0) { this.worms.push(entry.factory()); return false; }
       return true;
     });
 
-    // Only auto-move camera when not dragging
     if (!this._drag) this._updateCamera();
   }
 
   // ─── Camera ───────────────────────────────────────────────────────────────
 
   _updateCamera() {
-    // If following a specific worm, track its head
-    if (this._followIndex >= 0 && this._followIndex < this.worms.length) {
-      const target = this.worms[this._followIndex].head;
-      this.camera.x += (target.x - this.camera.x) * 0.08;
-      this.camera.y += (target.y - this.camera.y) * 0.08;
-      return;
+    // If the followed worm died, release it (camera stays put)
+    if (this._followTarget && !this.worms.includes(this._followTarget)) {
+      this._followTarget = null;
     }
-
-    // If the followed worm died, fall back to centroid
-    this._followIndex = -1;
-
-    if (this.worms.length === 0) return;
-    let cx = 0, cy = 0;
-    for (const w of this.worms) { cx += w.head.x; cy += w.head.y; }
-    const target = { x: cx / this.worms.length, y: cy / this.worms.length };
-    this.camera.x += (target.x - this.camera.x) * 0.05;
-    this.camera.y += (target.y - this.camera.y) * 0.05;
+    if (!this._followTarget) return; // free camera — no movement
+    const { x, y } = this._followTarget.head;
+    this.camera.x += (x - this.camera.x) * 0.08;
+    this.camera.y += (y - this.camera.y) * 0.08;
   }
 
   // ─── Draw ─────────────────────────────────────────────────────────────────
@@ -195,7 +187,6 @@ export class World {
     ctx.save();
     ctx.translate(Math.round(vw / 2 - this.camera.x), Math.round(vh / 2 - this.camera.y));
 
-    // World border
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 4;
     ctx.strokeRect(0, 0, this.worldWidth, this.worldHeight);
@@ -218,15 +209,14 @@ export class World {
     const hud = document.getElementById('hud');
     if (!hud) return;
 
-    const following = this._followIndex >= 0 && this._followIndex < this.worms.length
-      ? `Following: <span style="color:${this.worms[this._followIndex].color}">■</span> ${this.worms[this._followIndex].personality.name}`
-      : 'Following: centroid';
+    const ft = this._followTarget;
+    const camLine = ft
+      ? `<span style="color:${ft.color}">■</span> ${ft.personality.name} — tap to change`
+      : `free camera — tap to follow`;
 
     const sorted = [...this.worms].sort((a, b) => b.length - a.length).slice(0, 5);
     const lines = [
-      `Worms alive: ${this.worms.length} &nbsp; ${following}`,
-      `<span style="color:#555;font-size:12px">click = follow next &nbsp; drag = pan</span>`,
-      '',
+      `${this.worms.length} worm${this.worms.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${camLine}`,
     ];
     for (const w of sorted) {
       lines.push(`<span style="color:${w.color}">■</span> ${w.personality.name} — ${w.length} segs`);
