@@ -31,6 +31,7 @@ export class World {
     this._drag = null;
     this.zoom = 1.0;
     this._pinch = null; // two-finger pinch state
+    this.ticksPerFrame = 1;
 
     this._bindInput();
     this._spawnFood(500);
@@ -45,7 +46,11 @@ export class World {
   }
 
   start() {
-    const loop = () => { this.tick(); this.draw(); requestAnimationFrame(loop); };
+    const loop = () => {
+      for (let i = 0; i < this.ticksPerFrame; i++) this.tick();
+      this.draw();
+      requestAnimationFrame(loop);
+    };
     requestAnimationFrame(loop);
   }
 
@@ -251,8 +256,14 @@ export class World {
 
   draw() {
     const { ctx } = this;
-    const vw = this.canvas.width;
-    const vh = this.canvas.height;
+    const dpr = this._dpr || 1;
+    // Use CSS pixel dimensions so all coordinate math stays in CSS pixels
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    ctx.save();
+    // Scale once for device pixel ratio so the buffer fills at full resolution
+    ctx.scale(dpr, dpr);
 
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, vw, vh);
@@ -286,7 +297,8 @@ export class World {
 
     for (const worm of this.worms) worm.draw(ctx);
 
-    ctx.restore();
+    ctx.restore(); // restore zoom+camera transform
+    ctx.restore(); // restore dpr scale
 
     this._drawHUD();
   }
@@ -340,7 +352,12 @@ export class World {
   }
 
   _resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    this._dpr = dpr;
+    // CSS size = window size; buffer size = window * DPR for sharp rendering
+    this.canvas.style.width  = window.innerWidth  + 'px';
+    this.canvas.style.height = window.innerHeight + 'px';
+    this.canvas.width  = Math.round(window.innerWidth  * dpr);
+    this.canvas.height = Math.round(window.innerHeight * dpr);
   }
 }

@@ -47,6 +47,14 @@ export function initEditor(world) {
     chevron.classList.toggle('up', visible);
   });
 
+  // ── Simulation speed ───────────────────────────────────────────────────────
+  const simSpeed = document.getElementById('sim-speed');
+  const simSpeedVal = document.getElementById('sim-speed-val');
+  simSpeed.addEventListener('input', () => {
+    world.ticksPerFrame = parseInt(simSpeed.value);
+    simSpeedVal.textContent = simSpeed.value + '×';
+  });
+
   // ── Live slider labels ─────────────────────────────────────────────────────
   const bind = (id, valId, fmt = v => v) => {
     const input = document.getElementById(id);
