@@ -19,6 +19,188 @@
     }
 
     /* ─────────────────────────────────────────────────────────────
+       Home screen
+    ───────────────────────────────────────────────────────────── */
+
+    #home-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: #080808;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 56px;
+      transition: opacity 0.45s ease;
+    }
+    #home-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #home-title {
+      font-size: clamp(30px, 7.5vw, 76px);
+      letter-spacing: 0.18em;
+      color: #4ade80;
+      text-shadow:
+        0 0 28px rgba(74, 222, 128, 0.55),
+        0 0 72px rgba(74, 222, 128, 0.18);
+      text-align: center;
+      line-height: 1;
+      user-select: none;
+    }
+
+    #home-sub {
+      font-size: clamp(9px, 1.4vw, 12px);
+      letter-spacing: 0.28em;
+      color: #2c2c2c;
+      text-align: center;
+      margin-top: -44px;
+      user-select: none;
+    }
+
+    #mode-select {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 0 24px;
+    }
+
+    .mode-card {
+      background: #0c0c0c;
+      border: 1px solid #222;
+      border-radius: 5px;
+      padding: 34px 32px 30px;
+      cursor: pointer;
+      width: 205px;
+      text-align: left;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+
+    #mode-sandbox:hover {
+      border-color: #2e5e3e;
+      background: #0c150d;
+      box-shadow: 0 0 28px rgba(74, 222, 128, 0.06);
+    }
+    #mode-evolution:hover {
+      border-color: #3e2e5e;
+      background: #0e0c15;
+      box-shadow: 0 0 28px rgba(167, 139, 250, 0.07);
+    }
+
+    .mode-tag {
+      font-size: 9px;
+      letter-spacing: 2.5px;
+      color: #282828;
+      margin-bottom: 8px;
+    }
+
+    .mode-name {
+      font-size: 19px;
+      letter-spacing: 3px;
+      color: #d0d0d0;
+      font-weight: bold;
+      line-height: 1;
+      margin-bottom: 14px;
+    }
+
+    #mode-sandbox .mode-name  { color: #c8e8d0; }
+    #mode-evolution .mode-name { color: #ccc0e8; }
+
+    .mode-desc {
+      font-size: 10px;
+      color: #333;
+      line-height: 1.9;
+      letter-spacing: 0.4px;
+    }
+
+    .mode-arrow {
+      font-size: 15px;
+      color: #222;
+      position: absolute;
+      bottom: 18px;
+      right: 18px;
+      transition: color 0.2s, transform 0.2s;
+    }
+    #mode-sandbox:hover  .mode-arrow { color: #4ade80; transform: translateX(3px); }
+    #mode-evolution:hover .mode-arrow { color: #a78bfa; transform: translateX(3px); }
+
+    /* ─────────────────────────────────────────────────────────────
+       Evolution screen
+    ───────────────────────────────────────────────────────────── */
+
+    #evolution-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: #080808;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: monospace;
+      text-align: center;
+    }
+    #evolution-screen.visible { display: flex; }
+
+    #evo-back {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: none;
+      border: 1px solid #1e1e1e;
+      color: #383838;
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 7px 14px;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #evo-back:hover { color: #a78bfa; border-color: #a78bfa; }
+
+    #evo-title {
+      font-size: clamp(26px, 5.5vw, 58px);
+      letter-spacing: 0.2em;
+      color: #a78bfa;
+      text-shadow: 0 0 32px rgba(167, 139, 250, 0.45);
+      margin-bottom: 12px;
+      user-select: none;
+    }
+
+    #evo-tagline {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: #252525;
+      margin-bottom: 52px;
+    }
+
+    #evo-features {
+      list-style: none;
+      text-align: left;
+      color: #2a2a2a;
+      font-size: 12px;
+      line-height: 2.4;
+      letter-spacing: 0.8px;
+    }
+    #evo-features li::before { content: '○  '; color: #1c1c1c; }
+
+    #evo-status {
+      margin-top: 52px;
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: #1c1c1c;
+    }
+
+    /* ─────────────────────────────────────────────────────────────
        Spawn panel
        Desktop (≥520px wide OR landscape):  right side drawer
        Mobile  (<520px wide AND portrait):  bottom sheet
@@ -59,9 +241,6 @@
       #panel {
         right: 0; top: 0;
         height: 100%;
-        /* row: handle (first in DOM) is on the LEFT.
-           translateX(280) hides only the body off-screen while
-           the 22px handle tab stays visible at the viewport edge. */
         flex-direction: row;
         transform: translateX(280px);
       }
@@ -84,7 +263,7 @@
       #panel {
         bottom: 0; left: 0; right: 0;
         width: 100%;
-        flex-direction: column; /* handle on top */
+        flex-direction: column;
         transform: translateY(calc(100% - 34px));
         max-height: 72vh;
       }
@@ -293,6 +472,55 @@
   </style>
 </head>
 <body>
+
+  <!-- ── Home screen ───────────────────────────────────────────── -->
+  <div id="home-screen">
+    <h1 id="home-title">WORMAGEDDON</h1>
+    <p id="home-sub">SURVIVAL OF THE FITTEST</p>
+
+    <div id="mode-select">
+
+      <button class="mode-card" id="mode-sandbox">
+        <div class="mode-tag">MODE 01</div>
+        <div class="mode-name">SANDBOX</div>
+        <div class="mode-desc">
+          Free-form simulation.<br>
+          Spawn any species and<br>
+          watch them compete.
+        </div>
+        <span class="mode-arrow">→</span>
+      </button>
+
+      <button class="mode-card" id="mode-evolution">
+        <div class="mode-tag">MODE 02</div>
+        <div class="mode-name">EVOLUTION</div>
+        <div class="mode-desc">
+          Traits pass to offspring.<br>
+          The fittest survive.<br>
+          Species adapt over time.
+        </div>
+        <span class="mode-arrow">→</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ── Evolution screen ─────────────────────────────────────── -->
+  <div id="evolution-screen">
+    <button id="evo-back">← MENU</button>
+    <h2 id="evo-title">EVOLUTION</h2>
+    <p id="evo-tagline">TRAITS MUTATE. SPECIES COMPETE. ONLY THE FITTEST SURVIVE.</p>
+    <ul id="evo-features">
+      <li>Genetic trait inheritance</li>
+      <li>Mutation across generations</li>
+      <li>Population &amp; species graphs</li>
+      <li>Dominant strain tracking</li>
+      <li>Extinction events</li>
+    </ul>
+    <p id="evo-status">IN DEVELOPMENT</p>
+  </div>
+
+  <!-- ── Game (sandbox) ───────────────────────────────────────── -->
   <canvas id="canvas"></canvas>
   <div id="hud"></div>
 
