@@ -1,8 +1,8 @@
 import { SEGMENT_RADIUS } from './worm.js';
 
 const FOOD_RADIUS = 4;
-const FOOD_CAP = 800;          // max food pellets at once
-const FOOD_SPAWN_RATE = 10;    // new pellets added every tick
+const FOOD_CAP = 3000;         // max food pellets at once
+const FOOD_SPAWN_RATE = 30;    // new pellets added every tick
 const GROWTH_PER_FOOD = 5;
 const FOOD_COLORS = ['#f9e642', '#f97316', '#22d3ee', '#a78bfa', '#4ade80'];
 
@@ -32,7 +32,7 @@ export class World {
     this._drag = null;       // { startX, startY, camX, camY } while dragging
 
     this._bindInput();
-    this._spawnFood(200);
+    this._spawnFood(500);
   }
 
   addWorm(worm) {
@@ -69,10 +69,10 @@ export class World {
       this._drag = null;
     };
 
-    canvas.addEventListener('mousedown',  e => onStart(e.clientX, e.clientY));
-    canvas.addEventListener('mousemove',  e => onMove(e.clientX, e.clientY));
-    canvas.addEventListener('mouseup',    e => onEnd(e.clientX, e.clientY));
-    canvas.addEventListener('mouseleave', e => onEnd(e.clientX, e.clientY));
+    // mousedown on canvas, move/up on document so fast drags don't escape
+    canvas.addEventListener('mousedown', e => onStart(e.clientX, e.clientY));
+    document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+    document.addEventListener('mouseup',   e => onEnd(e.clientX, e.clientY));
 
     canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; onStart(t.clientX, t.clientY); }, { passive: false });
     canvas.addEventListener('touchmove',  e => { e.preventDefault(); const t = e.touches[0]; onMove(t.clientX, t.clientY); }, { passive: false });
