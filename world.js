@@ -9,10 +9,10 @@ const GROWTH_PER_FOOD = 5;
 const FOOD_COLORS = ['#f9e642', '#f97316', '#22d3ee', '#a78bfa', '#4ade80', '#fb7185', '#34d399'];
 
 // Mating constants
-const COURT_DIST_SQ   = 100 * 100;
-const MIN_MATE_LENGTH = 30;
-const COURT_DURATION  = 200; // ticks spent spiraling before offspring is produced
-const MATE_COOLDOWN   = 500; // ticks before a worm can mate again
+const COURT_DIST_SQ   = 160 * 160;
+const MIN_MATE_LENGTH = 18;
+const COURT_DURATION  = 120; // ticks spent spiraling before offspring is produced
+const MATE_COOLDOWN   = 250; // ticks before a worm can mate again
 
 export const WORLD_WIDTH = 4000;
 export const WORLD_HEIGHT = 3000;
@@ -333,7 +333,7 @@ export class World {
         if (paired.has(b)) continue;
         const dx = a.head.x - b.head.x;
         const dy = a.head.y - b.head.y;
-        if (dx * dx + dy * dy < COURT_DIST_SQ && Math.random() < 0.008) {
+        if (dx * dx + dy * dy < COURT_DIST_SQ && Math.random() < 0.025) {
           this._startCourtship(a, b);
           paired.add(a);
           paired.add(b);

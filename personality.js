@@ -57,8 +57,8 @@ function _aggressorSteer(worm, world) {
   for (const other of world.worms) {
     if (other === worm) continue;
     const d = Math.sqrt(distSq(head, other.head));
-    if (d > 400) continue;
-    const score = other.length - d * 0.1;
+    if (d > 600) continue;
+    const score = other.length - d * 0.05;
     if (score > bestScore) { bestScore = score; target = other; }
   }
   if (!target) return _foodieSteer(worm, world);
