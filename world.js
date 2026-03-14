@@ -1,34 +1,43 @@
 import { SEGMENT_RADIUS } from './worm.js';
 
 const FOOD_RADIUS = 4;
-const FOOD_COUNT = 40;       // food pellets to maintain
-const GROWTH_PER_FOOD = 5;   // segments added when a worm eats
+const FOOD_CAP = 400;          // max food pellets allowed at once
+const FOOD_SPAWN_RATE = 3;     // new pellets added every tick
+const GROWTH_PER_FOOD = 5;     // segments added when a worm eats
 const FOOD_COLORS = ['#f9e642', '#f97316', '#22d3ee', '#a78bfa', '#4ade80'];
-const RESPAWN_DELAY = 120;   // ticks before a dead worm respawns
+
+export const WORLD_WIDTH = 4000;
+export const WORLD_HEIGHT = 3000;
 
 export class World {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.width = canvas.width;
-    this.height = canvas.height;
+
+    // Viewport size = window size, resizes dynamically
+    this._resizeCanvas();
+    window.addEventListener('resize', () => this._resizeCanvas());
+
+    this.worldWidth = WORLD_WIDTH;
+    this.worldHeight = WORLD_HEIGHT;
+
+    // Camera tracks the centroid of all worms (world coordinates)
+    this.camera = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
 
     this.food = [];
     this.worms = [];
-    this._respawnQueue = []; // { ticksLeft, factory }
+    this._respawnQueue = [];
+    this._factories = [];
     this._tick = 0;
 
-    this._spawnFood(FOOD_COUNT);
+    this._spawnFood(150); // initial food scattered across the world
   }
 
-  // Register a worm factory function. Called by main.js for each worm.
   addWorm(worm) {
     this.worms.push(worm);
   }
 
-  // Register a factory so dead worms can respawn
   registerFactory(factory) {
-    this._factories = this._factories || [];
     this._factories.push(factory);
   }
 
@@ -49,21 +58,20 @@ export class World {
       worm.tick(this);
     }
 
-    // Check boundary collisions
+    // Boundary collisions (world edges, not canvas edges)
     for (const worm of this.worms) {
       const h = worm.head;
-      if (h.x < 0 || h.x > this.width || h.y < 0 || h.y > this.height) {
+      if (h.x < 0 || h.x > this.worldWidth || h.y < 0 || h.y > this.worldHeight) {
         this._killWorm(worm);
       }
     }
 
-    // Check worm-body collisions (head vs other worms' bodies)
+    // Worm-body collisions (head hits another worm's body)
     for (const worm of this.worms) {
       if (!worm.alive) continue;
       const h = worm.head;
       for (const other of this.worms) {
         if (other === worm || !other.alive) continue;
-        // Skip the first few segments of the other worm's head (avoid false positives)
         for (let i = 3; i < other.segments.length; i++) {
           const seg = other.segments[i];
           const dx = h.x - seg.x;
@@ -82,9 +90,14 @@ export class World {
     this.worms = this.worms.filter(w => w.alive);
     for (const worm of dead) {
       this._scatterFood(worm);
+      // Queue a respawn using a random factory
+      if (this._factories.length > 0) {
+        const factory = this._factories[Math.floor(Math.random() * this._factories.length)];
+        this._respawnQueue.push({ ticksLeft: 120, factory });
+      }
     }
 
-    // Check food collisions
+    // Food collisions
     for (const worm of this.worms) {
       const h = worm.head;
       this.food = this.food.filter(f => {
@@ -92,17 +105,18 @@ export class World {
         const dy = h.y - f.y;
         if (dx * dx + dy * dy < (SEGMENT_RADIUS + FOOD_RADIUS) ** 2) {
           worm.grow(GROWTH_PER_FOOD);
-          return false; // consumed
+          return false;
         }
         return true;
       });
     }
 
-    // Top up food supply
-    const deficit = FOOD_COUNT - this.food.length;
-    if (deficit > 0) this._spawnFood(deficit);
+    // Constantly trickle in new food up to the cap
+    if (this.food.length < FOOD_CAP) {
+      this._spawnFood(FOOD_SPAWN_RATE);
+    }
 
-    // Process respawn queue
+    // Respawn queue
     this._respawnQueue = this._respawnQueue.filter(entry => {
       entry.ticksLeft--;
       if (entry.ticksLeft <= 0) {
@@ -111,16 +125,28 @@ export class World {
       }
       return true;
     });
+
+    // Update camera to follow the centroid of all worms
+    this._updateCamera();
   }
 
   draw() {
-    const { ctx, width, height } = this;
+    const { ctx } = this;
+    const vw = this.canvas.width;
+    const vh = this.canvas.height;
 
-    // Background
     ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, vw, vh);
 
-    // Food
+    // Apply camera transform: shift world so camera center = viewport center
+    ctx.save();
+    ctx.translate(
+      Math.round(vw / 2 - this.camera.x),
+      Math.round(vh / 2 - this.camera.y),
+    );
+
+    this._drawWorldBorder();
+
     for (const f of this.food) {
       ctx.beginPath();
       ctx.arc(f.x, f.y, FOOD_RADIUS, 0, Math.PI * 2);
@@ -128,19 +154,36 @@ export class World {
       ctx.fill();
     }
 
-    // Worms
     for (const worm of this.worms) {
       worm.draw(ctx);
     }
 
-    // HUD
+    ctx.restore(); // back to screen space
+
     this._drawHUD();
+  }
+
+  _updateCamera() {
+    if (this.worms.length === 0) return;
+    let cx = 0, cy = 0;
+    for (const w of this.worms) { cx += w.head.x; cy += w.head.y; }
+    const target = { x: cx / this.worms.length, y: cy / this.worms.length };
+
+    // Smooth follow
+    this.camera.x += (target.x - this.camera.x) * 0.05;
+    this.camera.y += (target.y - this.camera.y) * 0.05;
+  }
+
+  _drawWorldBorder() {
+    const { ctx } = this;
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(0, 0, this.worldWidth, this.worldHeight);
   }
 
   _drawHUD() {
     const hud = document.getElementById('hud');
     if (!hud) return;
-
     const sorted = [...this.worms].sort((a, b) => b.length - a.length).slice(0, 5);
     const lines = [`Worms alive: ${this.worms.length}`, ''];
     for (const w of sorted) {
@@ -152,15 +195,14 @@ export class World {
   _spawnFood(count) {
     for (let i = 0; i < count; i++) {
       this.food.push({
-        x: Math.random() * this.width,
-        y: Math.random() * this.height,
+        x: Math.random() * this.worldWidth,
+        y: Math.random() * this.worldHeight,
         color: FOOD_COLORS[Math.floor(Math.random() * FOOD_COLORS.length)],
       });
     }
   }
 
   _scatterFood(worm) {
-    // Every 4th segment becomes a food pellet
     for (let i = 0; i < worm.segments.length; i += 4) {
       const seg = worm.segments[i];
       this.food.push({
@@ -173,5 +215,10 @@ export class World {
 
   _killWorm(worm) {
     worm.alive = false;
+  }
+
+  _resizeCanvas() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
   }
 }
