@@ -1,10 +1,9 @@
 import { SEGMENT_RADIUS } from './worm.js';
 
-const FOOD_RADIUS = 4;
 const FOOD_CAP = 3000;
 const FOOD_SPAWN_RATE = 30;
 const GROWTH_PER_FOOD = 5;
-const FOOD_COLORS = ['#f9e642', '#f97316', '#22d3ee', '#a78bfa', '#4ade80'];
+const FOOD_COLORS = ['#f9e642', '#f97316', '#22d3ee', '#a78bfa', '#4ade80', '#fb7185', '#34d399'];
 
 export const WORLD_WIDTH = 4000;
 export const WORLD_HEIGHT = 3000;
@@ -30,6 +29,8 @@ export class World {
     this.camera = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
     this._followTarget = null; // worm ref or null (free camera)
     this._drag = null;
+    this.zoom = 1.0;
+    this._pinch = null; // two-finger pinch state
 
     this._bindInput();
     this._spawnFood(500);
@@ -58,8 +59,9 @@ export class World {
     };
     const onMove = (x, y) => {
       if (!this._drag) return;
-      this.camera.x = this._drag.camX - (x - this._drag.startX);
-      this.camera.y = this._drag.camY - (y - this._drag.startY);
+      // Divide by zoom so a drag covers the same world distance regardless of zoom level
+      this.camera.x = this._drag.camX - (x - this._drag.startX) / this.zoom;
+      this.camera.y = this._drag.camY - (y - this._drag.startY) / this.zoom;
     };
     const onEnd = (x, y) => {
       if (!this._drag) return;
@@ -76,9 +78,80 @@ export class World {
     document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
     document.addEventListener('mouseup',   e => onEnd(e.clientX, e.clientY));
 
-    canvas.addEventListener('touchstart', e => { e.preventDefault(); const t = e.touches[0]; onStart(t.clientX, t.clientY); }, { passive: false });
-    canvas.addEventListener('touchmove',  e => { e.preventDefault(); const t = e.touches[0]; onMove(t.clientX, t.clientY); }, { passive: false });
-    canvas.addEventListener('touchend',   e => { e.preventDefault(); const t = e.changedTouches[0]; onEnd(t.clientX, t.clientY); }, { passive: false });
+    // Desktop scroll-to-zoom (zoom toward cursor)
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      this._applyZoom(factor, e.clientX, e.clientY);
+    }, { passive: false });
+
+    // Touch: single-finger drag, two-finger pinch-to-zoom
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const [t1, t2] = [e.touches[0], e.touches[1]];
+        this._pinch = {
+          dist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+          zoom: this.zoom,
+          camX: this.camera.x,
+          camY: this.camera.y,
+          midX: (t1.clientX + t2.clientX) / 2,
+          midY: (t1.clientY + t2.clientY) / 2,
+        };
+        this._drag = null;
+      } else if (e.touches.length === 1) {
+        this._pinch = null;
+        const t = e.touches[0];
+        onStart(t.clientX, t.clientY);
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      if (e.touches.length === 2 && this._pinch) {
+        const [t1, t2] = [e.touches[0], e.touches[1]];
+        const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        const newZoom = Math.max(0.25, Math.min(2.0, this._pinch.zoom * (dist / this._pinch.dist)));
+        const vw = this.canvas.width, vh = this.canvas.height;
+        const { midX, midY } = this._pinch;
+        // Keep the pinch midpoint fixed in world space as zoom changes
+        const dx = midX - vw / 2;
+        const dy = midY - vh / 2;
+        this.camera.x = this._pinch.camX + dx * (1 / this._pinch.zoom - 1 / newZoom);
+        this.camera.y = this._pinch.camY + dy * (1 / this._pinch.zoom - 1 / newZoom);
+        this.zoom = newZoom;
+      } else if (e.touches.length === 1) {
+        const t = e.touches[0];
+        onMove(t.clientX, t.clientY);
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', e => {
+      e.preventDefault();
+      this._pinch = null;
+      if (e.touches.length === 0) {
+        if (this._drag) {
+          const t = e.changedTouches[0];
+          onEnd(t.clientX, t.clientY);
+        }
+      } else if (e.touches.length === 1) {
+        // Dropped from 2 fingers to 1 — restart drag from current finger
+        const t = e.touches[0];
+        onStart(t.clientX, t.clientY);
+      }
+    }, { passive: false });
+  }
+
+  _applyZoom(factor, screenX, screenY) {
+    const oldZoom = this.zoom;
+    const newZoom = Math.max(0.25, Math.min(2.0, oldZoom * factor));
+    const vw = this.canvas.width, vh = this.canvas.height;
+    // Shift camera so the world point under (screenX, screenY) stays fixed
+    const dx = screenX - vw / 2;
+    const dy = screenY - vh / 2;
+    this.camera.x += dx * (1 / oldZoom - 1 / newZoom);
+    this.camera.y += dy * (1 / oldZoom - 1 / newZoom);
+    this.zoom = newZoom;
   }
 
   _cycleFollow() {
@@ -143,7 +216,7 @@ export class World {
       this.food = this.food.filter(f => {
         const dx = h.x - f.x;
         const dy = h.y - f.y;
-        if (dx * dx + dy * dy < (SEGMENT_RADIUS + FOOD_RADIUS) ** 2) {
+        if (dx * dx + dy * dy < (SEGMENT_RADIUS + f.r) ** 2) {
           worm.grow(GROWTH_PER_FOOD);
           return false;
         }
@@ -185,15 +258,28 @@ export class World {
     ctx.fillRect(0, 0, vw, vh);
 
     ctx.save();
-    ctx.translate(Math.round(vw / 2 - this.camera.x), Math.round(vh / 2 - this.camera.y));
+    // Zoom toward screen center, then translate for camera position
+    ctx.translate(vw / 2, vh / 2);
+    ctx.scale(this.zoom, this.zoom);
+    ctx.translate(-Math.round(this.camera.x), -Math.round(this.camera.y));
 
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 4;
     ctx.strokeRect(0, 0, this.worldWidth, this.worldHeight);
 
+    // Draw food — smaller pellets are plain circles, larger ones get an outer ring
     for (const f of this.food) {
+      if (f.r > 4.5) {
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r + 2, 0, Math.PI * 2);
+        ctx.strokeStyle = f.color;
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       ctx.beginPath();
-      ctx.arc(f.x, f.y, FOOD_RADIUS, 0, Math.PI * 2);
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
       ctx.fillStyle = f.color;
       ctx.fill();
     }
@@ -232,6 +318,7 @@ export class World {
         x: Math.random() * this.worldWidth,
         y: Math.random() * this.worldHeight,
         color: FOOD_COLORS[Math.floor(Math.random() * FOOD_COLORS.length)],
+        r: 2 + Math.random() * 5, // radius 2–7, adds visual variety
       });
     }
   }
@@ -243,6 +330,7 @@ export class World {
         x: seg.x + (Math.random() - 0.5) * 10,
         y: seg.y + (Math.random() - 0.5) * 10,
         color: worm.color,
+        r: 2 + Math.random() * 4,
       });
     }
   }

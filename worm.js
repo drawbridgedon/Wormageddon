@@ -50,10 +50,15 @@ export class Worm {
   }
 
   draw(ctx) {
+    // Worms grow slightly wider as they get longer
+    const scale = 1 + Math.sqrt(this.segments.length) * 0.025;
+    const bodyR = SEGMENT_RADIUS * scale;
+    const headR = HEAD_RADIUS * scale;
+
     // Draw body segments back-to-front so the head is on top
     for (let i = this.segments.length - 1; i >= 0; i--) {
       const seg = this.segments[i];
-      const r = i === 0 ? HEAD_RADIUS : SEGMENT_RADIUS;
+      const r = i === 0 ? headR : bodyR;
       const alpha = i === 0 ? 1 : 0.7 - (i / this.segments.length) * 0.3;
 
       ctx.beginPath();
