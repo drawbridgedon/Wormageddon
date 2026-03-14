@@ -32,12 +32,9 @@
       align-items: center;
       justify-content: center;
       gap: 56px;
-      transition: opacity 0.45s ease;
+      animation: fadeIn 0.4s ease;
     }
-    #home-screen.fade-out {
-      opacity: 0;
-      pointer-events: none;
-    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     #home-title {
       font-size: clamp(30px, 7.5vw, 76px);
@@ -480,7 +477,8 @@
 
     <div id="mode-select">
 
-      <button class="mode-card" id="mode-sandbox">
+      <button class="mode-card" id="mode-sandbox"
+        onclick="document.getElementById('home-screen').style.display='none'">
         <div class="mode-tag">MODE 01</div>
         <div class="mode-name">SANDBOX</div>
         <div class="mode-desc">
@@ -491,7 +489,8 @@
         <span class="mode-arrow">→</span>
       </button>
 
-      <button class="mode-card" id="mode-evolution">
+      <button class="mode-card" id="mode-evolution"
+        onclick="document.getElementById('home-screen').style.display='none';document.getElementById('evolution-screen').style.display='flex'">
         <div class="mode-tag">MODE 02</div>
         <div class="mode-name">EVOLUTION</div>
         <div class="mode-desc">
@@ -507,7 +506,8 @@
 
   <!-- ── Evolution screen ─────────────────────────────────────── -->
   <div id="evolution-screen">
-    <button id="evo-back">← MENU</button>
+    <button id="evo-back"
+      onclick="document.getElementById('evolution-screen').style.display='none';document.getElementById('home-screen').style.display='flex'">← MENU</button>
     <h2 id="evo-title">EVOLUTION</h2>
     <p id="evo-tagline">TRAITS MUTATE. SPECIES COMPETE. ONLY THE FITTEST SURVIVE.</p>
     <ul id="evo-features">
