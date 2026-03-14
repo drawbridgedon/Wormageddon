@@ -8,10 +8,8 @@ const evoScreen  = document.getElementById('evolution-screen');
 
 function dismissHome(then) {
   homeScreen.classList.add('fade-out');
-  homeScreen.addEventListener('transitionend', () => {
-    homeScreen.style.display = 'none';
-    then();
-  }, { once: true });
+  then(); // start the mode immediately; don't wait for the CSS fade
+  setTimeout(() => { homeScreen.style.display = 'none'; }, 500);
 }
 
 document.getElementById('mode-sandbox').addEventListener('click', () => {
