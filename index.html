@@ -59,8 +59,11 @@
       #panel {
         right: 0; top: 0;
         height: 100%;
-        flex-direction: row-reverse; /* handle on left */
-        transform: translateX(var(--body-w, 280px));
+        /* row: handle (first in DOM) is on the LEFT.
+           translateX(280) hides only the body off-screen while
+           the 22px handle tab stays visible at the viewport edge. */
+        flex-direction: row;
+        transform: translateX(280px);
       }
       #panel.open { transform: translateX(0); }
 
@@ -70,7 +73,7 @@
         writing-mode: vertical-lr;
       }
       #panel-body {
-        width: var(--body-w, 280px);
+        width: 280px;
         border-left: 1px solid #1e1e1e;
         padding: 16px;
       }

@@ -31,10 +31,6 @@ export function initEditor(world) {
   const panel  = document.getElementById('panel');
   const handle = document.getElementById('panel-handle');
 
-  // Derive panel body width from CSS custom property (or default 280px)
-  const bodyW = parseInt(getComputedStyle(document.documentElement)
-    .getPropertyValue('--body-w')) || 280;
-
   let open = false;
   handle.addEventListener('click', () => {
     open = !open;
