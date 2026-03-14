@@ -1,9 +1,18 @@
-import { SEGMENT_RADIUS } from './worm.js';
+import { Worm, SEGMENT_RADIUS } from './worm.js';
+import { makeCourtingPersonality, createCustomPersonality } from './personality.js';
+import { blendTraits, blendColors } from './genetics.js';
+import { generateOffspringName } from './names.js';
 
 const FOOD_CAP = 3000;
 const FOOD_SPAWN_RATE = 30;
 const GROWTH_PER_FOOD = 5;
 const FOOD_COLORS = ['#f9e642', '#f97316', '#22d3ee', '#a78bfa', '#4ade80', '#fb7185', '#34d399'];
+
+// Mating constants
+const COURT_DIST_SQ   = 100 * 100;
+const MIN_MATE_LENGTH = 30;
+const COURT_DURATION  = 200; // ticks spent spiraling before offspring is produced
+const MATE_COOLDOWN   = 500; // ticks before a worm can mate again
 
 export const WORLD_WIDTH = 4000;
 export const WORLD_HEIGHT = 3000;
@@ -24,6 +33,11 @@ export class World {
     this._respawnQueue = [];
     this._factories = [];
     this._tick = 0;
+
+    // Evolution mode — off by default (sandbox mode)
+    this.evolutionMode = false;
+    this.onWormBorn = null;  // (offspring, parentA, parentB) => void
+    this.onWormDied = null;  // (worm) => void
 
     // Camera: free by default, follows a worm reference when set
     this.camera = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
@@ -197,12 +211,14 @@ export class World {
       }
     }
 
-    // Body collision deaths
+    // Body collision deaths — courting partners are immune to each other
     for (const worm of this.worms) {
       if (!worm.alive) continue;
       const h = worm.head;
       for (const other of this.worms) {
         if (other === worm || !other.alive) continue;
+        // Don't kill each other while spiraling together
+        if (this.evolutionMode && worm.courtingWith === other) continue;
         for (let i = 3; i < other.segments.length; i++) {
           const seg = other.segments[i];
           const dx = h.x - seg.x;
@@ -216,15 +232,20 @@ export class World {
       }
     }
 
+    // Evolution mode: process mating before removing dead worms (so dead partners
+    // are still detectable via worm.alive = false)
+    if (this.evolutionMode) this._processMating();
+
     // Remove dead worms
     const dead = this.worms.filter(w => !w.alive);
     this.worms = this.worms.filter(w => w.alive);
     for (const worm of dead) {
       this._scatterFood(worm);
-      if (this._factories.length > 0) {
+      if (!this.evolutionMode && this._factories.length > 0) {
         const factory = this._factories[Math.floor(Math.random() * this._factories.length)];
         this._respawnQueue.push({ ticksLeft: 120, factory });
       }
+      this.onWormDied?.(worm);
     }
 
     // Food collection
@@ -243,12 +264,134 @@ export class World {
 
     if (this.food.length < FOOD_CAP) this._spawnFood(FOOD_SPAWN_RATE);
 
-    this._respawnQueue = this._respawnQueue.filter(entry => {
-      if (--entry.ticksLeft <= 0) { this.worms.push(entry.factory()); return false; }
-      return true;
-    });
+    // Sandbox respawn queue (disabled in evolution mode)
+    if (!this.evolutionMode) {
+      this._respawnQueue = this._respawnQueue.filter(entry => {
+        if (--entry.ticksLeft <= 0) { this.worms.push(entry.factory()); return false; }
+        return true;
+      });
+    }
 
     if (!this._drag) this._updateCamera();
+  }
+
+  // ─── Mating (evolution mode) ───────────────────────────────────────────────
+
+  _processMating() {
+    // Tick down cooldowns
+    for (const worm of this.worms) {
+      if (worm.matingCooldown > 0) worm.matingCooldown--;
+      if (worm.matingState === 'cooldown' && worm.matingCooldown <= 0) {
+        worm.matingState = 'idle';
+      }
+    }
+
+    // Check active courtships — break if partner is dead or far away
+    for (const worm of this.worms) {
+      if (worm.matingState !== 'courting') continue;
+      const partner = worm.courtingWith;
+      if (!partner || !partner.alive) {
+        this._endCourtship(worm, 60);
+      }
+    }
+
+    // Progress courtships; collect pairs that finish this tick
+    const finishing = [];
+    for (const worm of this.worms) {
+      if (worm.matingState !== 'courting') continue;
+      worm.courtingTicks++;
+      if (worm.courtingTicks >= COURT_DURATION) {
+        finishing.push(worm);
+      }
+    }
+
+    for (const worm of finishing) {
+      if (worm.matingState !== 'courting') continue; // already handled
+      const partner = worm.courtingWith;
+      // Produce offspring once per pair (lower-id worm is the producer)
+      if (partner && partner.alive && worm.id < partner.id) {
+        this._produceOffspring(worm, partner);
+      }
+      // End courtship for both
+      if (partner && partner.matingState === 'courting') this._endCourtship(partner, MATE_COOLDOWN);
+      this._endCourtship(worm, MATE_COOLDOWN);
+    }
+
+    // Find new courting pairs among eligible worms
+    const eligible = this.worms.filter(w =>
+      w.matingState === 'idle' &&
+      w.matingCooldown <= 0 &&
+      w.length >= MIN_MATE_LENGTH
+    );
+
+    const paired = new Set();
+    for (let i = 0; i < eligible.length; i++) {
+      const a = eligible[i];
+      if (paired.has(a)) continue;
+      for (let j = i + 1; j < eligible.length; j++) {
+        const b = eligible[j];
+        if (paired.has(b)) continue;
+        const dx = a.head.x - b.head.x;
+        const dy = a.head.y - b.head.y;
+        if (dx * dx + dy * dy < COURT_DIST_SQ && Math.random() < 0.008) {
+          this._startCourtship(a, b);
+          paired.add(a);
+          paired.add(b);
+          break;
+        }
+      }
+    }
+  }
+
+  _startCourtship(a, b) {
+    a.matingState     = 'courting';
+    a.courtingWith    = b;
+    a.courtingTicks   = 0;
+    a._savedPersonality = a.personality;
+    a.personality     = makeCourtingPersonality(a._savedPersonality, b);
+
+    b.matingState     = 'courting';
+    b.courtingWith    = a;
+    b.courtingTicks   = 0;
+    b._savedPersonality = b.personality;
+    b.personality     = makeCourtingPersonality(b._savedPersonality, a);
+  }
+
+  _endCourtship(worm, cooldown = 0) {
+    worm.personality      = worm._savedPersonality ?? worm.personality;
+    worm._savedPersonality = null;
+    worm.matingState      = cooldown > 0 ? 'cooldown' : 'idle';
+    worm.matingCooldown   = cooldown;
+    worm.courtingWith     = null;
+    worm.courtingTicks    = 0;
+  }
+
+  _produceOffspring(parentA, parentB) {
+    const traits = blendTraits(parentA.traits, parentB.traits);
+    const color  = blendColors(parentA.color, parentB.color);
+    const name   = generateOffspringName(parentA.name, parentB.name);
+    const midX   = (parentA.head.x + parentB.head.x) / 2 + (Math.random() - 0.5) * 30;
+    const midY   = (parentA.head.y + parentB.head.y) / 2 + (Math.random() - 0.5) * 30;
+
+    const offspring = new Worm({
+      x: midX, y: midY,
+      angle: Math.random() * Math.PI * 2,
+      color, name, traits,
+      speed:     traits.speed,
+      turnSpeed: traits.turnSpeed,
+      generation:  Math.max(parentA.generation, parentB.generation) + 1,
+      parents:     [parentA.id, parentB.id],
+      parentNames: [parentA.name, parentB.name],
+      personality: createCustomPersonality({
+        name,
+        foodWeight:   traits.foodWeight,
+        aggroWeight:  traits.aggroWeight,
+        wanderWeight: traits.wanderWeight,
+      }),
+    });
+
+    this.addWorm(offspring);
+    this.onWormBorn?.(offspring, parentA, parentB);
   }
 
   // ─── Camera ───────────────────────────────────────────────────────────────
@@ -320,8 +463,9 @@ export class World {
     if (!hud) return;
 
     const ft = this._followTarget;
+    const displayName = ft ? ft.name : null;
     const camLine = ft
-      ? `<span style="color:${ft.color}">■</span> ${ft.personality.name} — tap to change`
+      ? `<span style="color:${ft.color}">■</span> ${displayName} — tap to change`
       : `free camera — tap to follow`;
 
     const sorted = [...this.worms].sort((a, b) => b.length - a.length).slice(0, 5);
@@ -329,7 +473,10 @@ export class World {
       `${this.worms.length} worm${this.worms.length !== 1 ? 's' : ''} &nbsp;·&nbsp; ${camLine}`,
     ];
     for (const w of sorted) {
-      lines.push(`<span style="color:${w.color}">■</span> ${w.personality.name} — ${w.length} segs`);
+      const label = this.evolutionMode
+        ? `${w.name} <span style="color:#444">G${w.generation}</span>`
+        : w.name;
+      lines.push(`<span style="color:${w.color}">■</span> ${label} — ${w.length} segs`);
     }
     hud.innerHTML = lines.join('<br>');
   }

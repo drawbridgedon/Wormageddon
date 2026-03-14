@@ -7,7 +7,7 @@ function angleTo(a, b) {
   return Math.atan2(b.y - a.y, b.x - a.x);
 }
 
-function steerToward(currentAngle, targetAngle) {
+export function steerToward(currentAngle, targetAngle) {
   let diff = targetAngle - currentAngle;
   while (diff > Math.PI) diff -= 2 * Math.PI;
   while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -20,7 +20,7 @@ function distSq(a, b) {
   return dx * dx + dy * dy;
 }
 
-function avoidWalls(worm, world) {
+export function avoidWalls(worm, world) {
   const { x, y } = worm.head;
   const margin = 300;
   let turn = 0;
@@ -122,11 +122,44 @@ export function createCustomPersonality({ name, foodWeight = 1, aggroWeight = 0,
       if (total === 0) return avoidWalls(worm, world) * 2;
 
       let turn = 0;
-      if (foodWeight > 0)   turn += _foodieSteer(worm, world)                    * (foodWeight / total);
-      if (aggroWeight > 0)  turn += _aggressorSteer(worm, world)                 * (aggroWeight / total);
-      if (wanderWeight > 0) turn += _wandererSteer(worm, world, noiseMap)        * (wanderWeight / total);
+      if (foodWeight > 0)   turn += _foodieSteer(worm, world)              * (foodWeight / total);
+      if (aggroWeight > 0)  turn += _aggressorSteer(worm, world)           * (aggroWeight / total);
+      if (wanderWeight > 0) turn += _wandererSteer(worm, world, noiseMap)  * (wanderWeight / total);
 
       return turn + avoidWalls(worm, world) * 2;
+    },
+  };
+}
+
+// ─── Courting personality ─────────────────────────────────────────────────────
+// Replaces a worm's personality while it's spiraling with a partner.
+// The worm orbits the partner at close range and is drawn in at longer range.
+
+export function makeCourtingPersonality(original, partner) {
+  return {
+    name: original.name,
+    steer(worm, world) {
+      if (!partner.alive) {
+        // Partner died — fall back to normal behaviour
+        return original.steer(worm, world);
+      }
+
+      const dx = partner.head.x - worm.head.x;
+      const dy = partner.head.y - worm.head.y;
+      const dist = Math.hypot(dx, dy);
+      const angleToPartner = Math.atan2(dy, dx);
+
+      // Attraction weight: 0 when close (pure orbit), 1 when far (pull in)
+      const attractWeight = Math.min(1, Math.max(0, (dist - 40) / 80));
+      // Orbit: steer 90° left of the direction toward partner
+      const orbitAngle = angleToPartner + Math.PI / 2;
+
+      const orbitTurn   = steerToward(worm.angle, orbitAngle);
+      const attractTurn = steerToward(worm.angle, angleToPartner);
+
+      return orbitTurn * (1 - attractWeight)
+           + attractTurn * attractWeight
+           + avoidWalls(worm, world) * 3;
     },
   };
 }

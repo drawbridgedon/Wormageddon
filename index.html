@@ -466,6 +466,80 @@
       padding: 20px 0 8px;
       line-height: 1.8;
     }
+
+    /* ── Evolution mode panel ───────────────────────────────────────── */
+
+    .evo-spawn-btn {
+      width: 100%;
+      padding: 8px;
+      background: #071a26;
+      border: 1px solid #22d3ee;
+      color: #22d3ee;
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 1px;
+      border-radius: 3px;
+      transition: background 0.15s;
+    }
+    .evo-spawn-btn:hover { background: #0f2d40; }
+
+    .evo-count {
+      font-size: 10px;
+      color: #444;
+      font-family: monospace;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    .evo-worm-card {
+      padding: 9px 14px;
+      border-bottom: 1px solid #161616;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background 0.1s;
+    }
+    .evo-worm-card:hover { background: #111; }
+    .evo-courting { border-left-color: #ff69b4 !important; }
+
+    .evo-card-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 3px;
+    }
+    .evo-name {
+      font-family: monospace;
+      font-size: 12px;
+      color: #ddd;
+      flex: 1;
+    }
+    .evo-gen {
+      font-family: monospace;
+      font-size: 10px;
+      color: #555;
+      border: 1px solid #2a2a2a;
+      padding: 1px 5px;
+      border-radius: 2px;
+    }
+    .evo-parents {
+      font-size: 10px;
+      color: #3d3d3d;
+      font-family: monospace;
+      margin-bottom: 2px;
+    }
+    .evo-traits {
+      font-size: 10px;
+      color: #2e2e2e;
+      font-family: monospace;
+    }
+    .evo-empty {
+      font-size: 11px;
+      color: #333;
+      text-align: center;
+      padding: 20px 0 8px;
+      line-height: 1.8;
+    }
   </style>
 </head>
 <body>
@@ -490,7 +564,7 @@
       </button>
 
       <button class="mode-card" id="mode-evolution"
-        onclick="document.getElementById('home-screen').style.display='none';document.getElementById('evolution-screen').style.display='flex'">
+        onclick="document.getElementById('home-screen').style.display='none'">
         <div class="mode-tag">MODE 02</div>
         <div class="mode-name">EVOLUTION</div>
         <div class="mode-desc">

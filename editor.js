@@ -67,6 +67,11 @@ export function initEditor(world) {
       color: archetype.color,
       speed: archetype.speed,
       personality: createCustomPersonality(archetype),
+      // Trait snapshot so sandbox worms can participate in evolution if mode ever switches
+      traits: {
+        speed: archetype.speed, turnSpeed: 0.07,
+        foodWeight: archetype.foodWeight, aggroWeight: archetype.aggroWeight, wanderWeight: archetype.wanderWeight,
+      },
     });
   }
 

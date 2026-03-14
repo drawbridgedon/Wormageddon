@@ -1,15 +1,41 @@
 const SEGMENT_RADIUS = 6;
 const HEAD_RADIUS = 8;
-const DEFAULT_TURN_SPEED = 0.07; // radians per tick
+export const DEFAULT_TURN_SPEED = 0.07; // radians per tick
+
+let _nextId = 0;
 
 export class Worm {
-  constructor({ x, y, angle, color, personality, speed = 2, turnSpeed = DEFAULT_TURN_SPEED }) {
+  constructor({
+    x, y, angle, color, personality,
+    speed = 2, turnSpeed = DEFAULT_TURN_SPEED,
+    // Evolution fields
+    name, generation = 0, parents = [], parentNames = [], traits = null,
+  }) {
+    this.id = _nextId++;
     this.color = color;
     this.angle = angle;
     this.speed = speed;
     this.turnSpeed = turnSpeed;
     this.personality = personality;
     this.alive = true;
+
+    // Identity & lineage (used in both modes; defaults to personality-based name in sandbox)
+    this.name = name ?? (personality.name + ' ' + this.id);
+    this.generation = generation;
+    this.parents = parents;         // parent IDs
+    this.parentNames = parentNames; // parent names (snapshotted at birth so dead parents still readable)
+
+    // Numeric trait snapshot — used for inheritance; mirrors the constructor params
+    this.traits = traits ?? {
+      speed, turnSpeed, foodWeight: 1, aggroWeight: 0, wanderWeight: 0,
+    };
+
+    // Mating state machine (evolution mode only)
+    this.matingState  = 'idle'; // 'idle' | 'courting' | 'cooldown'
+    this.courtingWith = null;
+    this.courtingTicks = 0;
+    this.matingCooldown = 0;
+    this._savedPersonality = null;
 
     // Start with 10 segments all at the same position; they'll spread out naturally
     this.segments = Array.from({ length: 10 }, () => ({ x, y }));
@@ -54,6 +80,18 @@ export class Worm {
     const scale = 1 + Math.sqrt(this.segments.length) * 0.025;
     const bodyR = SEGMENT_RADIUS * scale;
     const headR = HEAD_RADIUS * scale;
+
+    // Courting: pulsing pink ring around the head
+    if (this.matingState === 'courting') {
+      const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.012);
+      ctx.beginPath();
+      ctx.arc(this.head.x, this.head.y, headR + 5 + pulse * 5, 0, Math.PI * 2);
+      ctx.strokeStyle = '#ff69b4';
+      ctx.globalAlpha = 0.55 + pulse * 0.25;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     // Draw body segments back-to-front so the head is on top
     for (let i = this.segments.length - 1; i >= 0; i--) {
