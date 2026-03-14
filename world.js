@@ -46,6 +46,18 @@ export class World {
   }
 
   start() {
+    // Wire up the speed slider now that the DOM is ready
+    const slider = document.getElementById('sim-speed');
+    const label  = document.getElementById('sim-speed-val');
+    if (slider) {
+      const sync = () => {
+        this.ticksPerFrame = +slider.value;
+        if (label) label.textContent = slider.value + '×';
+      };
+      slider.addEventListener('input',  sync);
+      slider.addEventListener('change', sync); // fallback for some mobile browsers
+    }
+
     const loop = () => {
       for (let i = 0; i < this.ticksPerFrame; i++) this.tick();
       this.draw();
