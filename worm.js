@@ -10,6 +10,7 @@ export class Worm {
     speed = 2, turnSpeed = DEFAULT_TURN_SPEED,
     // Evolution fields
     name, generation = 0, parents = [], parentNames = [], traits = null,
+    mateKey = Math.random(), // heritable compatibility value 0-1
   }) {
     this.id = _nextId++;
     this.color = color;
@@ -24,6 +25,9 @@ export class Worm {
     this.generation = generation;
     this.parents = parents;         // parent IDs
     this.parentNames = parentNames; // parent names (snapshotted at birth so dead parents still readable)
+
+    // Mate compatibility — only worms with similar keys will court each other
+    this.mateKey = mateKey;
 
     // Numeric trait snapshot — used for inheritance; mirrors the constructor params
     this.traits = traits ?? {

@@ -5,12 +5,20 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 // Blend two trait sets together with ±15 % random mutation on each trait.
 export function blendTraits(a, b) {
   const mix = (x, y) => (x + y) / 2 * (0.85 + Math.random() * 0.30);
+
+  // mateKey: average of parents + tiny drift so offspring stay compatible
+  // with their family but can slowly speciate over generations.
+  // Wrapped to [0, 1) so the space stays circular.
+  const rawKey = (a.mateKey + b.mateKey) / 2 + (Math.random() - 0.5) * 0.06;
+  const mateKey = ((rawKey % 1) + 1) % 1;
+
   return {
     speed:        clamp(mix(a.speed,        b.speed),        0.8, 5.0),
     turnSpeed:    clamp(mix(a.turnSpeed,    b.turnSpeed),    0.04, 0.14),
     foodWeight:   Math.max(0, mix(a.foodWeight,   b.foodWeight)),
     aggroWeight:  Math.max(0, mix(a.aggroWeight,  b.aggroWeight)),
     wanderWeight: Math.max(0, mix(a.wanderWeight, b.wanderWeight)),
+    mateKey,
   };
 }
 

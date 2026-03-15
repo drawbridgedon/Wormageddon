@@ -334,7 +334,7 @@ export class World {
         if (paired.has(b)) continue;
         const dx = a.head.x - b.head.x;
         const dy = a.head.y - b.head.y;
-        if (dx * dx + dy * dy < COURT_DIST_SQ && Math.random() < 0.025) {
+        if (dx * dx + dy * dy < COURT_DIST_SQ && this._compatible(a, b) && Math.random() < 0.025) {
           this._startCourtship(a, b);
           paired.add(a);
           paired.add(b);
@@ -342,6 +342,13 @@ export class World {
         }
       }
     }
+  }
+
+  _compatible(a, b) {
+    // Circular distance on mateKey: 0.2 threshold means ~40% of random pairs match,
+    // but offspring inherit similar keys so family groups naturally cluster.
+    const diff = Math.abs(a.mateKey - b.mateKey);
+    return Math.min(diff, 1 - diff) < 0.2;
   }
 
   _startCourtship(a, b) {
@@ -383,6 +390,7 @@ export class World {
       color, name, traits,
       speed:     traits.speed,
       turnSpeed: traits.turnSpeed,
+      mateKey:   traits.mateKey,
       generation:  Math.max(parentA.generation, parentB.generation) + 1,
       parents:     [parentA.id, parentB.id],
       parentNames: [parentA.name, parentB.name],
