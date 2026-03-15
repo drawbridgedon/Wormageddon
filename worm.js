@@ -37,6 +37,9 @@ export class Worm {
     this.matingCooldown = 0;
     this._savedPersonality = null;
 
+    // Collision immunity for newborns so they aren't killed inside the mating spiral
+    this.immunityTicks = 0;
+
     // Start with 10 segments all at the same position; they'll spread out naturally
     this.segments = Array.from({ length: 10 }, () => ({ x, y }));
   }
@@ -52,6 +55,7 @@ export class Worm {
   // Called each tick. Returns food pellets to add to the world if this worm dies.
   tick(world) {
     if (!this.alive) return;
+    if (this.immunityTicks > 0) this.immunityTicks--;
 
     // Ask personality how much to turn (-1 = full left, 0 = straight, +1 = full right)
     const turn = this.personality.steer(this, world);

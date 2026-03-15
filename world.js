@@ -211,9 +211,10 @@ export class World {
       }
     }
 
-    // Body collision deaths — courting partners are immune to each other
+    // Body collision deaths — courting partners and newborns are immune
     for (const worm of this.worms) {
       if (!worm.alive) continue;
+      if (worm.immunityTicks > 0) continue; // newborn grace period
       const h = worm.head;
       for (const other of this.worms) {
         if (other === worm || !other.alive) continue;
@@ -370,8 +371,11 @@ export class World {
     const traits = blendTraits(parentA.traits, parentB.traits);
     const color  = blendColors(parentA.color, parentB.color);
     const name   = generateOffspringName(parentA.name, parentB.name);
-    const midX   = (parentA.head.x + parentB.head.x) / 2 + (Math.random() - 0.5) * 30;
-    const midY   = (parentA.head.y + parentB.head.y) / 2 + (Math.random() - 0.5) * 30;
+    // Spawn outside the orbital radius so the baby isn't born into a body
+    const spawnAngle = Math.random() * Math.PI * 2;
+    const spawnDist  = 180 + Math.random() * 60;
+    const midX = (parentA.head.x + parentB.head.x) / 2 + Math.cos(spawnAngle) * spawnDist;
+    const midY = (parentA.head.y + parentB.head.y) / 2 + Math.sin(spawnAngle) * spawnDist;
 
     const offspring = new Worm({
       x: midX, y: midY,
@@ -390,6 +394,7 @@ export class World {
       }),
     });
 
+    offspring.immunityTicks = 90; // ~1.5 s at 60 fps — enough to clear the spiral
     this.addWorm(offspring);
     this.onWormBorn?.(offspring, parentA, parentB);
   }
